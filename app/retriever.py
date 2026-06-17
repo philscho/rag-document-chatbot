@@ -18,7 +18,7 @@ def load_vectorstore() -> Chroma:
     )
 
 
-def get_retriever(k: int = 4) -> VectorStoreRetriever:
+def get_retriever(k: int = 6) -> VectorStoreRetriever:
     """Gibt einen Retriever zurück, der die k relevantesten Chunks findet."""
     vectorstore = load_vectorstore()
     return vectorstore.as_retriever(

@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import pymupdf
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -9,6 +10,7 @@ load_dotenv()
 
 DOCS_DIR = Path("data/documents")
 CHROMA_DIR = Path("data/chroma_db")
+DOCUMENT_INFO_PATH = Path("data/document_info.json")
 
 # TODO: consider using LangChain's PyMuPDFLoader instead of manual PyMuPDF implementation
 def load_pdfs(docs_dir: Path) -> list[dict]:
@@ -33,8 +35,8 @@ def load_pdfs(docs_dir: Path) -> list[dict]:
 def chunk_documents(documents: list[dict]) -> list:
     """Splittet Dokumente in Chunks."""
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
+        chunk_size=1000,
+        chunk_overlap=100,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
 
@@ -65,12 +67,32 @@ def embed_and_store(chunks: list) -> Chroma:
     return vectorstore
 
 
+def extract_document_info(docs_dir: Path) -> list[dict]:
+    """Extrahiert Titel, Autor und Datum von der ersten Seite jedes PDFs."""
+    infos = []
+    for pdf_path in docs_dir.glob("*.pdf"):
+        doc = pymupdf.open(pdf_path)
+        first_page_text = doc[0].get_text().strip()
+        doc.close()
+        infos.append({"source": pdf_path.name, "title_page": first_page_text})
+    return infos
+
+
 def ingest(docs_dir: Path = DOCS_DIR) -> Chroma:
     documents = load_pdfs(docs_dir)
     if not documents:
         raise ValueError(f"Keine PDFs gefunden in {docs_dir}")
+
+    doc_infos = extract_document_info(docs_dir)
+    DOCUMENT_INFO_PATH.write_text(json.dumps(doc_infos, ensure_ascii=False, indent=2))
+    print(f"Dokument-Info gespeichert: {DOCUMENT_INFO_PATH}")
+
+    if CHROMA_DIR.exists():
+        import shutil
+        shutil.rmtree(CHROMA_DIR)
+        print(f"ChromaDB geleert: {CHROMA_DIR}")
+
     chunks = chunk_documents(documents)
-    
     return embed_and_store(chunks)
 
 

@@ -19,3 +19,6 @@ dependencies = [
     "streamlit>=1.58.0",
     "uvicorn>=0.48.0",
 ]
+
+[project.scripts]
+rag-chat = "app.cli:main"
