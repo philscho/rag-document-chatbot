@@ -1,48 +1,63 @@
-# Projektkontext
+# CLAUDE.md
 
-RAG-basierter Dokumenten-Chatbot. Nutzer laden PDFs hoch und stellen Fragen dazu in natürlicher Sprache.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Repo: github.com/philscho/rag-document-chatbot
+## Commands
 
-## Stack
+```bash
+# Install dependencies
+uv sync
 
-- LangChain (LCEL) – RAG-Pipeline-Orchestrierung
-- OpenAI – Embeddings (text-embedding-3-small) und LLM (gpt-3.5-turbo)
-- ChromaDB – Vector Store
-- FastAPI – REST-Backend
-- Streamlit – Chat-Frontend
-- Docker / docker-compose – Containerisierung
-- pytest – Tests
-- uv – Paketverwaltung
+# Index documents (required before first use, clears and rebuilds ChromaDB)
+uv run python -m app.ingest
 
-## Architektur
+# Start API backend
+uv run uvicorn app.api:app --reload
 
-app/ingest.py              – PDF laden, chunken (1000 Token, 100 Overlap), embedden; speichert Titelseiten in data/document_info.json; löscht ChromaDB vor jedem Lauf (sauberer State)
-app/retriever.py           – Vector-Store-Abfrage (Top-6-Chunks)
-app/chain.py                – RAG-Chain: Retriever → Prompt → LLM; lädt document_info.json als fixen Kontext (immer im Prompt)
-app/api.py                   – FastAPI-Endpunkte
-app/cli.py                    – Interaktive Terminal-REPL (`uv run rag-chat`)
-frontend/streamlit_app.py – Chat-UI
-tests/                          – pytest-Suite
-data/document_info.json   – Titelseiten aller ingestierten PDFs (wird bei Ingest neu erzeugt)
+# Start Streamlit frontend (separate terminal)
+uv run streamlit run frontend/streamlit_app.py
 
-## Konventionen
+# Interactive CLI
+uv run rag-chat
 
-- Paketverwaltung ausschließlich über uv, nicht direkt mit pip
-- Vor jedem Commit: `uv run pytest tests/ -v` muss grün sein
-- Commit-Messages nach Conventional Commits (feat:, fix:, refactor:, docs:, test:, chore:)
-- Ein Branch pro Issue/Feature, kein direktes Arbeiten auf main
+# Run all tests
+uv run pytest tests/ -v
 
-## Designentscheidungen – nicht ohne Rückfrage ändern
+# Run a single test
+uv run pytest tests/test_chain.py::test_chunk_documents_basic -v
 
-- Chunk-Größe 1000 Token / 100 Overlap (erhöht von 500/50 wegen schlechter Retrieval-Qualität bei kurzen Chunks)
-- Retrieval holt fix 6 Chunks (erhöht von 4)
-- Titelseiten werden als fixer Kontext in den Prompt injiziert, nicht per Retrieval geholt – Grund: semantisches Retrieval findet Titelseiten bei Metafragen (Titel, Autor) zuverlässig nicht
-- Ingest löscht ChromaDB immer komplett neu, um veraltete Chunks zu vermeiden
+# Run with Docker
+docker-compose up
+```
 
-## Pflege dieser Datei
+Place PDFs in `data/documents/` before ingesting.
 
-Nach Code-Änderungen prüfen: neues Modul/Architekturänderung, 
-Tech-Stack-Wechsel, geänderte Konvention, neue oder revidierte 
-Designentscheidung. Falls ja, betroffenen Abschnitt knapp 
-aktualisieren. Falls nein, Datei unverändert lassen.
+## Architecture
+
+The pipeline has three stages that compose into a LangChain LCEL chain:
+
+**Ingest** (`app/ingest.py`) — run once per document set, not at query time. Loads PDFs with PyMuPDF page by page, splits into 1000-token chunks (100 overlap), embeds with `text-embedding-3-small`, stores in ChromaDB. Always wipes ChromaDB first to avoid stale chunks. Also extracts the full text of page 1 of each PDF and saves it to `data/document_info.json` for use as fixed prompt context.
+
+**Retrieval** (`app/retriever.py`) — loads the persisted ChromaDB and returns a LangChain retriever with `k=6` similarity search.
+
+**Chain** (`app/chain.py`) — builds the LCEL chain: `{context: retriever | format_docs, question: passthrough, document_info: lambda} | prompt | ChatOpenAI | StrOutputParser`. The `document_info` key injects the title-page content from `data/document_info.json` into every prompt unconditionally — this is intentional, because semantic retrieval reliably fails to surface title pages for metadata questions (title, author, date).
+
+The FastAPI app (`app/api.py`) and Streamlit frontend (`frontend/streamlit_app.py`) are thin wrappers: the API instantiates the chain once at startup and exposes `POST /query`; the frontend calls the API over HTTP (configurable via `API_URL` env var, defaults to `http://localhost:8000`).
+
+## Environment
+
+Requires a `.env` file with `OPENAI_API_KEY`. Copy `.env.example` to get started.
+
+## Conventions
+
+- Package management exclusively via `uv`, not pip
+- `uv run pytest tests/ -v` must pass before every commit
+- Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`)
+- One branch per issue/feature, no direct commits to main
+
+## Design decisions — do not change without discussion
+
+- **Chunk size 1000 / overlap 100** — increased from 500/50; shorter chunks produced poor retrieval quality
+- **k=6 retrieval** — increased from 4 for better context coverage
+- **Title pages injected as fixed context** — semantic retrieval does not reliably find title pages for metadata queries; injecting them unconditionally solves this cleanly
+- **Ingest always wipes ChromaDB** — prevents stale chunks from previous ingests from polluting results
