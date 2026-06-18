@@ -1,3 +1,4 @@
+import pytest
 from langchain_core.documents import Document
 from app.ingest import chunk_documents
 from app.retriever import load_vectorstore, get_retriever
@@ -25,12 +26,14 @@ def test_chunk_documents_empty():
 
 # --- Integration Tests ---
 
+@pytest.mark.integration
 def test_vectorstore_loads():
     """ChromaDB lässt sich laden."""
     vectorstore = load_vectorstore()
     assert vectorstore is not None
 
 
+@pytest.mark.integration
 def test_retriever_returns_results():
     """Retriever gibt bei einer bekannten Query mindestens einen Chunk zurück."""
     retriever = get_retriever(k=2)
@@ -39,6 +42,7 @@ def test_retriever_returns_results():
     assert isinstance(results[0], Document)
 
 
+@pytest.mark.integration
 def test_query_endpoint():
     """POST /query gibt einen nicht-leeren Answer-String zurück."""
     response = client.post("/query", json={"question": "What is contrastive learning"})
