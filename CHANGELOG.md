@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-18
+### Added
+- CI-Pipeline mit GitHub Actions: `ruff`-Lint + Offline-Unit-Tests bei jedem Push/PR auf `master`, Status-Badge im README
+- Tests in offline-Unit (`test_chunk_*`, `test_health_*`, `test_query_empty`) vs. `@pytest.mark.integration` (brauchen `OPENAI_API_KEY` + ChromaDB) aufgeteilt
+
+### Fixed
+- Lazy Initialization der RAG-Chain in `app/api.py`: Chain wird erst bei der ersten Anfrage gebaut, nicht beim Import — verhindert `OpenAIError` beim Starten ohne Key
+
+### Removed
+- Obsolete `[tool.vercel]`-Config aus `pyproject.toml` entfernt (Deployment-Ziel: AWS)
+
 ## [0.2.0] - 2026-06-17
 ### Added
 - CLI (`app/cli.py`): interaktive Terminal-REPL, startbar via `uv run rag-chat`
