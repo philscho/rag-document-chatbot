@@ -1,5 +1,7 @@
 # RAG Document Chatbot
 
+[![CI](https://github.com/philscho/rag-document-chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/philscho/rag-document-chatbot/actions/workflows/ci.yml)
+
 A document question-answering chatbot powered by Retrieval-Augmented Generation (RAG). Upload PDF documents and ask questions about their content in natural language.
 
 ## Demo

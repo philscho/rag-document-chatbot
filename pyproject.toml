@@ -23,5 +23,7 @@ dependencies = [
 [project.scripts]
 rag-chat = "app.cli:main"
 
-[tool.vercel]
-entrypoint = "app.api:app"
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires OPENAI_API_KEY and a populated ChromaDB",
+]

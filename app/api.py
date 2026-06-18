@@ -6,7 +6,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(title="RAG Document Chatbot")
-chain = build_chain()
+_chain = None
+
+
+def get_chain():
+    global _chain
+    if _chain is None:
+        _chain = build_chain()
+    return _chain
 
 
 class QueryRequest(BaseModel):
@@ -26,7 +33,7 @@ def health():
 def query(request: QueryRequest):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
-    answer = chain.invoke(request.question)
+    answer = get_chain().invoke(request.question)
     return QueryResponse(answer=answer)
 
 
